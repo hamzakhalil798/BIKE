@@ -11,7 +11,7 @@ data:
     num_classes: 101
     image_tmpl: 'image_{:04d}.jpg'
     train_root: '/bpfs/v2_mnt/VIS/wuwenhao/UCF101-frames'
-    val_root:  '/content/dataset/UCF_processed'
+    val_root:  /content/dataset/UCF-101-processed
     train_list: 'lists/ucf101/train_rgb_split_1.txt' 
     val_list: '/content/MVFNet/datalist/ucf101/val_rgb_split_1.txt'
     label_list: 'datasets/labels.csv'
