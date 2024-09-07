@@ -6,15 +6,15 @@ data:
     modality: RGB
     num_segments: 16
     seg_length: 1
-    batch_size: 32
-    workers: 4
+    batch_size: 8
+    workers: 2
     num_classes: 101
     image_tmpl: 'image_{:04d}.jpg'
     train_root: '/bpfs/v2_mnt/VIS/wuwenhao/UCF101-frames'
-    val_root: '/bpfs/v2_mnt/VIS/wuwenhao/UCF101-frames'
+    val_root:  '/content/dataset/UCF_processed'
     train_list: 'lists/ucf101/train_rgb_split_1.txt' 
-    val_list: 'lists/ucf101/val_rgb_split_1.txt'
-    label_list: 'lists/ucf101/ucf_labels.csv'
+    val_list: '/content/MVFNet/datalist/ucf101/val_rgb_split_1.txt'
+    label_list: 'datasets/labels.csv'
     input_size: 224
     random_shift: True
     output_path: exps
