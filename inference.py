@@ -8,6 +8,7 @@ from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 import torchvision
+import pandas as pd
 import torch.nn.functional as F
 import time
 from utils.utils import init_distributed_mode, AverageMeter, reduce_tensor, accuracy
@@ -172,13 +173,20 @@ def main(args):
 
 
 def validate(val_loader, classes, device, model, video_head, config, n_class, test_crops, test_clips):
+
+    labels_df = pd.read_csv('datasets/labels.csv')
+    class_id_to_name = dict(zip(labels_df['id'], labels_df['name']))
+
+
+
+
     top1 = AverageMeter()
     top5 = AverageMeter()
     model.eval()
     video_head.eval()
     proc_start_time = time.time()
-    sim_logits = []   
-    labels = []   
+    sim_logits = []
+    labels = [] 
     with torch.no_grad():
         text_inputs = classes.to(device)
         # cls_feature, text_features = model.module.encode_text(text_inputs, return_token=True)
@@ -204,10 +212,17 @@ def validate(val_loader, classes, device, model, video_head, config, n_class, te
 
             similarity = similarity.view(batch_size, -1, n_class).softmax(dim=-1)
             similarity = similarity.mean(dim=1, keepdim=False)
-            _, predicted_class = torch.max(similarity, dim=1)
+            # _, predicted_class = torch.max(similarity, dim=1)
 
-            # Print the predicted class
-            print(f"Predicted class for batch {i}: {predicted_class.cpu().numpy()}")
+            # # Print the predicted class
+            # print(f"Predicted class : {predicted_class.cpu().numpy()}")
+
+            _, predicted_class_ids = torch.max(similarity, dim=1)
+
+            # Print the predicted class names using the dictionary
+            predicted_class_names = [class_id_to_name[class_id.item()] for class_id in predicted_class_ids]
+            print(f"Predicted class: {predicted_class_names}")
+
 
     #         if 'anet' in config.data.dataset:
     #             ########## for saving 
@@ -265,4 +280,6 @@ def concat_all_gather(tensor):
 if __name__ == '__main__':
     args = get_parser()
     main(args)
+
+
 
