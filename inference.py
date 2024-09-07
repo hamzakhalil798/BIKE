@@ -59,7 +59,7 @@ def main(args):
 
     config = DotMap(config)
 
-    device = "cpu"
+    device = "cuda"
     if torch.cuda.is_available():
         device = "cuda"
         cudnn.benchmark = True
