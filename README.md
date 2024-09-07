@@ -1,5 +1,8 @@
 <div align="center">
 
+
+Added single Video inference. Colab Notebook is present (BIKE_inference.ipynb) just upload to google Colab everything would be handled automatically.
+
 <h2>【CVPR'2023】🚴 BIKE: Bidirectional Cross-Modal Knowledge Exploration for Video Recognition with Pre-trained Vision-Language Models </h2>
 
 [![Conference](http://img.shields.io/badge/CVPR-2023-f9f107.svg)](https://openaccess.thecvf.com/content/CVPR2023/html/Wu_Bidirectional_Cross-Modal_Knowledge_Exploration_for_Video_Recognition_With_Pre-Trained_Vision-Language_CVPR_2023_paper.html) 
