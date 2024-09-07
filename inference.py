@@ -59,7 +59,7 @@ def main(args):
 
     config = DotMap(config)
 
-    device = "cuda"
+    device = "cpu"
     if torch.cuda.is_available():
         device = "cuda"
         cudnn.benchmark = True
@@ -67,7 +67,7 @@ def main(args):
     # get fp16 model and weight
     model, clip_state_dict = clip.load(
         config.network.arch,
-        device='cuda', jit=False,
+        device='cpu', jit=False,
         internal_modeling=config.network.tm,
         T=config.data.num_segments,
         dropout=config.network.drop_out,
