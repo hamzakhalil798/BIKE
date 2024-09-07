@@ -67,7 +67,7 @@ def main(args):
     # get fp16 model and weight
     model, clip_state_dict = clip.load(
         config.network.arch,
-        device='cpu', jit=False,
+        device='cuda', jit=False,
         internal_modeling=config.network.tm,
         T=config.data.num_segments,
         dropout=config.network.drop_out,
