@@ -14,7 +14,7 @@ data:
     val_root: '/content/customVideos-Processed'
     train_list: 'lists/ucf101/train_rgb_split_1.txt' 
     val_list: '/content/annotations.txt'
-    label_list: '/content/labels.csv'
+    label_list: 'datasets/labels.csv'
     input_size: 224
     random_shift: True
     output_path: exps
