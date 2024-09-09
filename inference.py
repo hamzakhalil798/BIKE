@@ -152,7 +152,7 @@ def main(args):
         sampler=val_sampler, pin_memory=True, drop_last=False)
 
     if os.path.isfile(args.weights):
-        checkpoint = torch.load(args.weights, map_location='cuda',weights_only=True)
+        checkpoint = torch.load(args.weights, map_location=device,weights_only=True)
         # if dist.get_rank() == 0:
         #     print('load model: epoch {}'.format(checkpoint['epoch']))
 
