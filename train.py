@@ -95,15 +95,15 @@ def main(args):
     working_dir = os.path.join(config['data']['output_path'], config['data']['dataset'], config['network']['arch'] , args.log_time)
 
 
-    if dist.get_rank() == 0:
-        Path(working_dir).mkdir(parents=True, exist_ok=True)
-        shutil.copy(args.config, working_dir)
-        shutil.copy('train.py', working_dir)
+    # if dist.get_rank() == 0:
+    Path(working_dir).mkdir(parents=True, exist_ok=True)
+    shutil.copy(args.config, working_dir)
+    shutil.copy('train.py', working_dir)
 
 
     # build logger, print env and config
     logger = setup_logger(output=working_dir,
-                          distributed_rank=dist.get_rank(),
+                          distributed_rank=0,
                           name=f'BIKE')
     logger.info("------------------------------------")
     logger.info("Environment Versions:")
@@ -126,7 +126,7 @@ def main(args):
         cudnn.benchmark = True
 
     # fix the seed for reproducibility
-    seed = config.seed + dist.get_rank()
+    seed = config.seed + 0
     torch.manual_seed(seed)
     np.random.seed(seed)
 
@@ -134,7 +134,7 @@ def main(args):
     # get fp16 model and weight
     model, clip_state_dict = clip.load(
         config.network.arch,
-        device='cpu',jit=False,
+        device=device,jit=False,
         internal_modeling=config.network.tm,
         T=config.data.num_segments,
         dropout=config.network.drop_out,
@@ -154,6 +154,9 @@ def main(args):
         config.network.sim_header,
         config.network.interaction,
         clip_state_dict)
+
+
+    video_head = video_head.to(device)  # Move video_head to GPU
 
     if args.precision == "amp" or args.precision == "fp32":
         model = model.float()
@@ -208,15 +211,15 @@ def main(args):
     ########################################################
 
 
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_data)                       
+    # train_sampler = torch.utils.data.distributed.DistributedSampler(train_data)                       
     train_loader = DataLoader(train_data,
         batch_size=config.data.batch_size, num_workers=config.data.workers,
-        sampler=train_sampler, drop_last=True)
+        sampler=None, drop_last=True)
 
-    val_sampler = torch.utils.data.distributed.DistributedSampler(val_data, shuffle=False)
+    # val_sampler = torch.utils.data.distributed.DistributedSampler(val_data, shuffle=False)
     val_loader = DataLoader(val_data,
         batch_size=config.data.batch_size,num_workers=config.data.workers,
-        sampler=val_sampler, drop_last=False)
+        sampler=None, drop_last=False)
 
     loss_type = config.solver.loss_type
     if loss_type == 'NCE':
@@ -231,7 +234,7 @@ def main(args):
     if config.pretrain:
         if os.path.isfile(config.pretrain):
             logger.info("=> loading checkpoint '{}'".format(config.pretrain))
-            checkpoint = torch.load(config.pretrain, map_location='cpu')
+            checkpoint = torch.load(config.pretrain, map_location=device)
             model.load_state_dict(checkpoint['model_state_dict'])
             video_head.load_state_dict(checkpoint['fusion_model_state_dict'])
             del checkpoint
@@ -241,7 +244,7 @@ def main(args):
     if config.resume:
         if os.path.isfile(config.resume):
             logger.info("=> loading checkpoint '{}'".format(config.resume))
-            checkpoint = torch.load(config.resume, map_location='cpu')
+            checkpoint = torch.load(config.resume, map_location=device)
             model.load_state_dict(update_dict(checkpoint['model_state_dict']))
             video_head.load_state_dict(update_dict(checkpoint['fusion_model_state_dict']))
             start_epoch = checkpoint['epoch'] + 1
@@ -274,6 +277,7 @@ def main(args):
         else:
             video_head = DistributedDataParallel(video_head.cuda(), device_ids=[args.gpu])
             video_head_nomodule = video_head.module
+    video_head_nomodule = video_head
         
 
     scaler = GradScaler() if args.precision == "amp" else None
@@ -311,18 +315,18 @@ def main(args):
             else:
                 prec1, output_list, labels_list = validate(epoch, val_loader, classes, device, model, video_head, config, n_class, logger, save_score)
 
-            if dist.get_rank() == 0:
-                is_best = prec1 > best_prec1
-                best_prec1 = max(prec1, best_prec1)
-                logger.info('Testing: {}/{}'.format(prec1,best_prec1))
-                logger.info('Saving:')
-                filename = "{}/last_model.pt".format(working_dir)
+            # if dist.get_rank() == 0:
+            is_best = prec1 > best_prec1
+            best_prec1 = max(prec1, best_prec1)
+            logger.info('Testing: {}/{}'.format(prec1,best_prec1))
+            logger.info('Saving:')
+            filename = "{}/last_model.pt".format(working_dir)
 
-                epoch_saving(epoch, model.module, video_head_nomodule, optimizer, filename)
-                if is_best:
-                    best_saving(working_dir, epoch, model.module, video_head_nomodule, optimizer)
-                    if save_score:
-                        save_sims(output_list, labels_list)
+            epoch_saving(epoch, model, video_head_nomodule, optimizer, filename)
+            if is_best:
+                best_saving(working_dir, epoch, model, video_head_nomodule, optimizer)
+                if save_score:
+                    save_sims(output_list, labels_list)
 
 
 
@@ -426,13 +430,13 @@ def validate(epoch, val_loader, classes, device, model, video_head, config, n_cl
 
     with torch.no_grad():
         text_inputs = classes.to(device)  # [n_cls, 77]
-        cls_feature, text_features = model.module.encode_text(text_inputs, return_token=True)  # [n_cls, feat_dim]
+        cls_feature, text_features = model.encode_text(text_inputs, return_token=True)  # [n_cls, feat_dim]
         for i, (image, class_id) in enumerate(val_loader):
             image = image.view((-1, config.data.num_segments, 3) + image.size()[-2:])
             b, t, c, h, w = image.size()
             class_id = class_id.to(device)
             image_input = image.to(device).view(-1, c, h, w)
-            image_features = model.module.encode_image(image_input).view(b, t, -1)
+            image_features = model.encode_image(image_input).view(b, t, -1)
             similarity = video_head(image_features, text_features, cls_feature)
 
             similarity = similarity.view(b, -1, n_class).softmax(dim=-1)  # [bs, n_frames, n_cls]
@@ -475,13 +479,13 @@ def validate_mAP(epoch, val_loader, classes, device, model, video_head, config, 
 
     with torch.no_grad():
         text_inputs = classes.to(device)  # [400, 77]
-        cls_feature, text_features = model.module.encode_text(text_inputs, return_token=True)  # [400, 512]
+        cls_feature, text_features = model.encode_text(text_inputs, return_token=True)  # [400, 512]
         for i, (image, class_id) in enumerate(val_loader):
             image = image.view((-1, config.data.num_segments, 3) + image.size()[-2:])
             b, t, c, h, w = image.size()
             class_id = class_id.to(device)
             image_input = image.to(device).view(-1, c, h, w)
-            image_features = model.module.encode_image(image_input).view(b, t, -1)
+            image_features = model.encode_image(image_input).view(b, t, -1)
             similarity = video_head(image_features, text_features, cls_feature)
 
             similarity = similarity.view(b, -1, n_class).softmax(dim=-1)  # [bs, 16, 400]
